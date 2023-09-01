@@ -39,8 +39,8 @@ impl Default for CharsLayout {
 
 impl CharsLayout {
     pub fn init(&mut self, engine: &mut JEngine) {
-        self.resize(engine);
         self.resize_char(engine, 1.0);
+        self.resize(engine);
     }
     // 更新布局纹理的内容
     pub fn update(&mut self, engine: &mut JEngine, fontobj: &mut FontObj) {
@@ -51,27 +51,26 @@ impl CharsLayout {
     }
     /// 调整字符纹理的尺寸
     pub fn resize_char(&mut self, engine: &mut JEngine, scale: f32) {
-        self.char_wid = (scale * 8.0) as u32;
-        self.char_hei = (scale * 10.0) as u32;
-        let surf = SdlSurface::new(self.char_wid, self.char_hei, SdlPixelFormat::ARGB8888).unwrap();
-        self.tex_char = Some(JTexture::from_surface(engine.renderer(), &surf));
+        self.char_wid = 3; //(scale * 8.0) as u32;
+        self.char_hei = 3; //(scale * 10.0) as u32;
+        // let surf = SdlSurface::new(self.char_wid, self.char_hei, SdlPixelFormat::ARGB8888).unwrap();
+        // self.tex_char = Some(JTexture::from_surface(engine.renderer(), &surf));
     }
     //// 调整布局纹理的尺寸
     pub fn resize(&mut self, engine: &mut JEngine) {
-        let (wwid, whei) = engine.window().size();
+        let (wwid, whei) = (768, 768); //engine.window().size();
         self.line_chars = wwid / self.char_wid;
         self.page_line = whei / self.char_hei + 1;
         let last = self.line_chars * self.page_line + self.char_first;
         self.char_last = if last > 65536 { 65536 } else { last };
 
-        self.tex_layout = Some(JTexture::from_window(engine.renderer(), wwid, whei));
+        self.tex_layout = Some(JTexture::from_window(engine.renderer(), wwid, whei, false));
         self.char_idx = self.char_first;
 
         println!(
             "first {}, last {}, line_char {}, page_line {}",
             self.char_first, self.char_last, self.line_chars, self.page_line
         );
-        // self.init_tex(engine);
     }
     /// 在布局纹理上绘制字符集
     fn draw_tex(&mut self, engine: &mut JEngine, fontobj: &mut FontObj) {
@@ -81,7 +80,7 @@ impl CharsLayout {
             .with_texture_canvas(
                 &mut (self.tex_layout.as_mut().unwrap().sdl_texture),
                 |tex_canvas| {
-                    let mut fontdraw = FontDraw::new(tex_canvas);
+                    // let mut fontdraw = FontDraw::new(tex_canvas);
                     let color = JColor::new(0.3, 0.3, 0.0, 1.0);
                     let mut rect = SdlRect::new(0, 0, self.char_wid - 1, self.char_hei - 1);
                     // let time_start = timer.count();
@@ -93,16 +92,15 @@ impl CharsLayout {
 
                         let gid = fontobj.get_glyphs_id(self.char_idx);
                         if gid.is_none() {
-                            // tex_canvas.set_draw_color(color.to_sdlcolor());
-							fontdraw.color(&color);
-						} else {
-                            // tex_canvas.set_draw_color(jcolor::WHITE.to_sdlcolor());
-							fontdraw.color(&jcolor::WHITE);
-							fontdraw.rect(rect);
-                            fontobj.draw_glyph(gid.unwrap(), &mut fontdraw);
-							break;
+                            tex_canvas.set_draw_color(color.to_sdlcolor());
+                        // fontdraw.color(&color);
+                        } else {
+                            tex_canvas.set_draw_color(jcolor::WHITE.to_sdlcolor());
+                            // fontdraw.color(&jcolor::WHITE);
+                            // fontdraw.rect(rect);
+                            // fontobj.draw_glyph(gid.unwrap(), &mut fontdraw);
                         }
-                        // tex_canvas.fill_rect(rect).unwrap();
+                        tex_canvas.fill_rect(rect).unwrap();
 
                         // if let Some(glyid) = fontobj.get_glyphs_id(self.char_idx) {
                         //     println!("{} => {}", self.char_idx, glyid.0);

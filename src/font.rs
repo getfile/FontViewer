@@ -31,32 +31,57 @@ impl<'a> FontDraw<'a> {
 }
 impl<'a> OutlineBuilder for FontDraw<'a> {
     fn close(&mut self) {
-        // self.canvas.draw_line(self.start, self.first).unwrap();
+        self.canvas.draw_line(self.start, self.first).unwrap();
         // println!("close");
     }
     fn move_to(&mut self, x: f32, y: f32) {
-        (self.first.x, self.first.y) = (x as i32 + self.rect.x, 256 - y as i32 + self.rect.y);
+        (self.first.x, self.first.y) =
+            (x as i32 - self.rect.x, self.rect.h - y as i32 + self.rect.y);
         self.start = self.first;
-        // (self.start.x, self.start.y) = (x as i32+self.x, 256-y as i32+self.x);
+        // (self.start.x, self.start.y) = (x as i32+self.x, self.rect.h-y as i32+self.x);
     }
     fn line_to(&mut self, x: f32, y: f32) {
-        let end = SdlPoint::new(x as i32 + self.rect.x, 256 - y as i32 + self.rect.y);
+        let end = SdlPoint::new(x as i32 - self.rect.x, self.rect.h - y as i32 + self.rect.y);
         self.canvas.draw_line(self.start, end).unwrap();
         self.start = end;
     }
     fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
-        let mid = SdlPoint::new(x1 as i32 + self.rect.x, 256 - y1 as i32 + self.rect.y);
-        let end = SdlPoint::new(x as i32 + self.rect.x, 256 - y as i32 + self.rect.y);
-        self.canvas.draw_line(self.start, mid).unwrap();
-        self.canvas.draw_line(mid, end).unwrap();
+        let mut t = 0.0f32;
+        let mut beg = self.start;
+        let mid = SdlPoint::new(
+            x1 as i32 - self.rect.x,
+            self.rect.h - y1 as i32 + self.rect.y,
+        );
+        let end = SdlPoint::new(x as i32 - self.rect.x, self.rect.h - y as i32 + self.rect.y);
+        while t < 1.0 {
+            t += 0.1;
+            let it = 1.0 - t;
+            let next = SdlPoint::new(
+                (it * it * self.start.x as f32 + 2.0 * t * it * mid.x as f32 + t * t * end.x as f32)
+                    as i32,
+                (it * it * self.start.y as f32 + 2.0 * t * it * mid.y as f32 + t * t * end.y as f32)
+                    as i32,
+            );
+            self.canvas.draw_line(beg, next).unwrap();
+            beg = next;
+        }
+        // self.canvas.draw_line(self.start, mid).unwrap();
+        // self.canvas.draw_line(mid, end).unwrap();
         self.start = end;
     }
     fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
-        let mid0 = SdlPoint::new(x1 as i32 + self.rect.x, 256 - y1 as i32 + self.rect.y);
+        panic!();
+        let mid0 = SdlPoint::new(
+            x1 as i32 - self.rect.x,
+            self.rect.h - y1 as i32 + self.rect.y,
+        );
         self.canvas.draw_line(self.start, mid0).unwrap();
-        let mid = SdlPoint::new(x2 as i32 + self.rect.x, 256 - y2 as i32 + self.rect.y);
+        let mid = SdlPoint::new(
+            x2 as i32 - self.rect.x,
+            self.rect.h - y2 as i32 + self.rect.y,
+        );
         self.canvas.draw_line(mid0, mid).unwrap();
-        let end = SdlPoint::new(x as i32 + self.rect.x, 256 - y as i32 + self.rect.y);
+        let end = SdlPoint::new(x as i32 - self.rect.x, self.rect.h - y as i32 + self.rect.y);
         self.canvas.draw_line(mid, end).unwrap();
         self.start = end;
     }
@@ -109,8 +134,8 @@ impl<'a> FontObj<'a> {
 
     #[inline(always)]
     pub fn get_glyphs_id(&self, code: u32) -> Option<GlyphId> {
-        // let code_point = char::from_u32(code);
-        let code_point = Some('W');
+        let code_point = char::from_u32(code);
+        // let code_point = Some('W');
         if code_point.is_none() {
             return None;
         }
