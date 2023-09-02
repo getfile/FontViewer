@@ -26,7 +26,7 @@ impl<'a> Default for App<'a> {
 
 impl<'a> IApp for App<'a> {
     fn on_init(&mut self, _engine: &mut JEngine) -> SdlResult {
-        let mut fontmgr = FontMgr::init();
+        // let mut fontmgr = FontMgr::init();
         // fontmgr.setfont("d:/web/font/Code_8X8.ttf", 12, SdlFontStyle::BOLD);
 
         self.layout.init(_engine);

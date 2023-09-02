@@ -90,7 +90,7 @@ impl CharsLayout {
                         rect.x = (cx * self.char_wid) as i32;
                         rect.y = (cy * self.char_hei) as i32;
 
-                        let gid = fontobj.get_glyphs_id(self.char_idx);
+                        let gid = fontobj.get_glyph_id(self.char_idx);
                         if gid.is_none() {
                             tex_canvas.set_draw_color(color.to_sdlcolor());
                         // fontdraw.color(&color);

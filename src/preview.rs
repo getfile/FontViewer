@@ -27,7 +27,7 @@ impl CharPreview {
     /// 更新字符
     pub fn update(&mut self, engine: &mut JEngine, fontobj: &mut FontObj, uid: u32) {
         // println!("update {}", uid);
-        self.gid = fontobj.get_glyphs_id(uid);
+        self.gid = fontobj.get_glyph_id(uid);
         self.draw_tex(engine, fontobj)
     }
     /// 绘制字符
