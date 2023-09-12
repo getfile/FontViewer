@@ -1,10 +1,15 @@
 pub mod font;
 pub mod layout;
 pub mod preview;
+pub mod unicode_layout;
+
+use std::default;
 
 use font::FontObj;
+use jengine::jcolor::JColor;
 use jengine::jengine::{IApp, JEngine, JEngineArgs, SdlEvent, SdlResult, SdlWindowEvent};
 use jengine::jfont::{FontMgr, SdlFontStyle};
+use jengine::jinput::{SdlKeycode, SdlKeymod};
 use layout::CharsLayout;
 use preview::CharPreview;
 
@@ -30,6 +35,7 @@ impl<'a> IApp for App<'a> {
         // fontmgr.setfont("d:/web/font/Code_8X8.ttf", 12, SdlFontStyle::BOLD);
 
         self.layout.init(_engine);
+        // self.font_obj = Some(FontObj::init("d:/web/font/VonwaonBitmap-12px.ttf"));
         // self.font_obj = Some(FontObj::init("d:/web/font/mplus_hzk_13.ttf"));
         self.font_obj = Some(FontObj::init("d:/web/font/Small SimSun.ttf"));
         if self.font_obj.is_some() {
@@ -50,18 +56,44 @@ impl<'a> IApp for App<'a> {
     }
     fn on_event(&mut self, _engine: &mut JEngine, _event: SdlEvent) -> SdlResult {
         // println!("{:?}", _event);
-        if let SdlEvent::Window {
-            win_event: SdlWindowEvent::SizeChanged(wid, hei),
-            ..
-        } = _event
-        {
-            self.layout.resize(_engine);
-            // self.prev.init_tex(_engine);
-            println!("resize {}, {}", wid, hei);
-        } else if let SdlEvent::MouseMotion { x, y, .. } = _event {
-            let ch = x / 3 + y / 3 * 256;
-            self.prev
-                .update(_engine, self.font_obj.as_mut().unwrap(), ch as u32);
+        match _event {
+            SdlEvent::Window { win_event: SdlWindowEvent::SizeChanged(wid, hei), .. } => {
+                self.layout.resize(_engine);
+                // self.prev.init_tex(_engine);
+                println!("resize {}, {}", wid, hei);
+            }
+            SdlEvent::MouseMotion { x, y, .. } => {
+                let mut ch = x / self.layout.box_wid as i32 + y / self.layout.box_hei as i32 * self.layout.line_box as i32;
+                ch += self.layout.char_first as i32;
+                self.prev.update(_engine, self.font_obj.as_mut().unwrap(), ch as u32);
+            }
+            SdlEvent::KeyDown { keycode, keymod, .. } => {
+                // println!("{}", keycode.unwrap());
+                match keycode.unwrap() {
+                    SdlKeycode::D => {
+                        if keymod == SdlKeymod::LSHIFTMOD {
+                            self.layout.page_down(_engine, self.font_obj.as_mut().unwrap());
+                        } else {
+                            self.layout.line_down(_engine, self.font_obj.as_mut().unwrap());
+                        }
+                    }
+                    SdlKeycode::U => {
+                        if keymod == SdlKeymod::LSHIFTMOD {
+                            self.layout.page_up(_engine, self.font_obj.as_mut().unwrap());
+                        } else {
+                            self.layout.line_up(_engine, self.font_obj.as_mut().unwrap());
+                        }
+                    }
+                    SdlKeycode::Home => {
+                        self.layout.page_home(_engine, self.font_obj.as_mut().unwrap());
+                    }
+                    SdlKeycode::End => {
+                        self.layout.page_end(_engine, self.font_obj.as_mut().unwrap());
+                    }
+                    _ => (),
+                }
+            }
+            _ => (),
         }
 
         Ok(())
@@ -69,12 +101,16 @@ impl<'a> IApp for App<'a> {
 }
 
 fn main() {
-    let mut args = JEngineArgs::default();
-    args.width = 768;
-    args.height = 800;
-    // args.resize = true;
-    args.title = "字体查看器".to_string();
-    args.bg.0[0] = 0.3;
-
-    args.build().unwrap().run(&mut App::default()).unwrap();
+    JEngineArgs {
+        width: 768,
+        height: 800,
+        resize: true,
+        title: "字体查看器".to_string(),
+        bg: JColor::new(0.3, 0.0, 0.0, 1.0),
+        ..JEngineArgs::default()
+    }
+    .build()
+    .unwrap()
+    .run(&mut App::default())
+    .unwrap();
 }
