@@ -1,5 +1,6 @@
-use jengine::jcolor::{self, JColor, BLACK, WHITE};
+use jengine::jcolor::{self, JColor, BLACK, WHITE, YELLOW};
 use jengine::jengine::JEngine;
+use jengine::jrenderer::JRenderer;
 use jengine::jtexture::JTexture;
 use jengine::math::jgeom::JRect;
 use ttf_parser::GlyphId;
@@ -7,21 +8,25 @@ use ttf_parser::GlyphId;
 use crate::font::{FontDraw, FontObj, GlyphInfo};
 
 pub struct CharPreview {
-    uid: u32, //字符unicode
+    side: i32, //是否靠左边
+    uid: u32,  //字符unicode
     tex: Option<JTexture>,
     gid: Option<GlyphId>, //字形id
     ginfo: Option<GlyphInfo>,
 }
 impl Default for CharPreview {
     fn default() -> Self {
-        Self { uid: 0, tex: None, gid: None, ginfo: None }
+        Self { side: 0, uid: 0, tex: None, gid: None, ginfo: None }
     }
 }
 
 impl CharPreview {
     pub fn init(&mut self, _engine: &mut JEngine, fontobj: &mut FontObj) {
-        self.tex = Some(JTexture::from_window(_engine.canvas(), 300, 300, false));
+        self.tex = Some(JTexture::from_window(_engine.canvas(), 300, 375, false));
         self.draw_tex(_engine, fontobj);
+    }
+    pub fn set_side(&mut self, mx: i32) {
+        self.side = mx;
     }
     /// 更新字符
     pub fn update(&mut self, engine: &mut JEngine, fontobj: &mut FontObj, uid: u32) {
@@ -49,12 +54,7 @@ impl CharPreview {
                 tex_canvas.set_draw_color(BLACK.to_sdlcolor());
                 tex_canvas.clear();
 
-                // if self.ginfo.is_some()
                 let rect = self.ginfo.as_ref().unwrap().bound;
-
-                // let mut col = jcolor::WHITE;
-                // tex_canvas.set_draw_color(col.to_sdlcolor());
-                // tex_canvas.draw_rect(SdlRect::new()).unwrap();
 
                 let mut fontdraw = FontDraw::new(tex_canvas, 300. / fontobj.unit_em() as f32);
                 fontdraw.set_rect(JRect::new(0., 0., 300., 300.), false);
@@ -62,6 +62,10 @@ impl CharPreview {
                 let color = JColor::new(0.4, 0.4, 0.7, 1.0);
                 fontdraw.color(&color);
                 fontobj.draw_glyph(self.gid.unwrap(), &mut fontdraw);
+
+                let mut render = JRenderer::new(tex_canvas, &BLACK);
+				let info = format!("unicode: u{:04X} ({})\nglyphId: {}", self.uid, self.uid, self.gid.unwrap().0);
+                render.draw_text(&info, 2, 2, 1000, &YELLOW);
             })
             .unwrap();
     }
@@ -70,6 +74,8 @@ impl CharPreview {
         if self.gid.is_none() {
             return;
         }
-        _engine.renderer().draw_pic(&self.tex.as_ref().unwrap(), 12, 12);
+        let (wwid, _) = _engine.window().size();
+        let wwid = wwid as i32;
+        _engine.renderer().draw_pic(&self.tex.as_ref().unwrap(), if self.side > wwid / 2 { 12 } else { wwid - 12 - 300 }, 12);
     }
 }

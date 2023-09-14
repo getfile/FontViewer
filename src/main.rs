@@ -58,37 +58,50 @@ impl<'a> IApp for App<'a> {
         // println!("{:?}", _event);
         match _event {
             SdlEvent::Window { win_event: SdlWindowEvent::SizeChanged(wid, hei), .. } => {
-                self.layout.resize(_engine);
+                self.layout.set_layout_size(_engine);
                 // self.prev.init_tex(_engine);
                 println!("resize {}, {}", wid, hei);
             }
             SdlEvent::MouseMotion { x, y, .. } => {
-                let mut ch = x / self.layout.box_wid as i32 + y / self.layout.box_hei as i32 * self.layout.line_box as i32;
-                ch += self.layout.char_first as i32;
-                self.prev.update(_engine, self.font_obj.as_mut().unwrap(), ch as u32);
+                self.prev.set_side(x);
+
+                let ch = self.layout.charid(x, y);
+                self.prev.update(_engine, self.font_obj.as_mut().unwrap(), ch);
             }
             SdlEvent::KeyDown { keycode, keymod, .. } => {
                 // println!("{}", keycode.unwrap());
                 match keycode.unwrap() {
-                    SdlKeycode::D => {
+                    SdlKeycode::J => {
                         if keymod == SdlKeymod::LSHIFTMOD {
-                            self.layout.page_down(_engine, self.font_obj.as_mut().unwrap());
+                            self.layout.page_down(_engine);
                         } else {
-                            self.layout.line_down(_engine, self.font_obj.as_mut().unwrap());
+                            self.layout.line_down(_engine);
                         }
                     }
-                    SdlKeycode::U => {
+                    SdlKeycode::K => {
                         if keymod == SdlKeymod::LSHIFTMOD {
-                            self.layout.page_up(_engine, self.font_obj.as_mut().unwrap());
+                            self.layout.page_up(_engine);
                         } else {
-                            self.layout.line_up(_engine, self.font_obj.as_mut().unwrap());
+                            self.layout.line_up(_engine);
                         }
+                    }
+                    SdlKeycode::H => {
+                        self.layout.char_left(_engine);
+                    }
+                    SdlKeycode::L => {
+                        self.layout.char_right(_engine);
                     }
                     SdlKeycode::Home => {
-                        self.layout.page_home(_engine, self.font_obj.as_mut().unwrap());
+                        self.layout.page_home(_engine);
                     }
                     SdlKeycode::End => {
-                        self.layout.page_end(_engine, self.font_obj.as_mut().unwrap());
+                        self.layout.page_end(_engine);
+                    }
+                    SdlKeycode::U => {
+                        self.layout.set_char_size(_engine, false);
+                    }
+                    SdlKeycode::D => {
+                        self.layout.set_char_size(_engine, true);
                     }
                     _ => (),
                 }
