@@ -59,8 +59,7 @@ impl<'a> IApp for App<'a> {
         match _event {
             SdlEvent::Window { win_event: SdlWindowEvent::SizeChanged(wid, hei), .. } => {
                 self.layout.set_layout_size(_engine);
-				self.layout.init_cursor(_engine);
-                // self.prev.init_tex(_engine);
+                self.layout.init_cursor(_engine);
                 println!("resize {}, {}", wid, hei);
             }
             SdlEvent::MouseMotion { x, y, .. } => {
@@ -69,34 +68,34 @@ impl<'a> IApp for App<'a> {
                 let ch = self.layout.charid(x, y);
                 self.prev.update(_engine, self.font_obj.as_mut().unwrap(), ch);
             }
+            SdlEvent::MouseButtonDown { x, y, .. } => {
+                self.layout.set_charid(_engine, x, y);
+            }
             SdlEvent::KeyDown { keycode, keymod, .. } => {
-                // println!("{}", keycode.unwrap());
                 match keycode.unwrap() {
                     SdlKeycode::J => {
-                        if keymod == SdlKeymod::LSHIFTMOD {
-                            self.layout.page_down(_engine);
-                        } else {
-                            self.layout.line_down(_engine);
-                        }
+                        self.layout.line_move(_engine, if keymod == SdlKeymod::LSHIFTMOD { 10 } else { 1 });
                     }
                     SdlKeycode::K => {
-                        if keymod == SdlKeymod::LSHIFTMOD {
-                            self.layout.page_up(_engine);
-                        } else {
-                            self.layout.line_up(_engine);
-                        }
+                        self.layout.line_move(_engine, if keymod == SdlKeymod::LSHIFTMOD { -10 } else { -1 });
                     }
                     SdlKeycode::H => {
-                        self.layout.char_left(_engine);
+                        self.layout.char_move(_engine, if keymod == SdlKeymod::LSHIFTMOD { -10 } else { -1 });
                     }
                     SdlKeycode::L => {
-                        self.layout.char_right(_engine);
+                        self.layout.char_move(_engine, if keymod == SdlKeymod::LSHIFTMOD { 10 } else { 1 });
                     }
                     SdlKeycode::Home => {
                         self.layout.page_home(_engine);
                     }
                     SdlKeycode::End => {
                         self.layout.page_end(_engine);
+                    }
+                    SdlKeycode::PageUp => {
+                        self.layout.page_up(_engine);
+                    }
+                    SdlKeycode::PageDown => {
+                        self.layout.page_down(_engine);
                     }
                     SdlKeycode::U => {
                         self.layout.set_char_size(_engine, false);

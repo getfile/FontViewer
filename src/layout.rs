@@ -12,6 +12,7 @@ use crate::font::{FontDraw, FontObj};
 #[derive(Debug, PartialEq)]
 enum CharSize {
     Overview = 0isize, //(4, 4)
+    Tiny,              //(6,6)
     Small,             //(8, 8)
     Standart,          //(16, 16)
     Big,               //(32, 32)
@@ -20,8 +21,9 @@ enum CharSize {
 impl CharSize {
     pub fn next(&mut self, up: bool) {
         match self {
-            CharSize::Overview => *self = if up { CharSize::Large } else { CharSize::Small },
-            CharSize::Small => *self = if up { CharSize::Overview } else { CharSize::Standart },
+            CharSize::Overview => *self = if up { CharSize::Large } else { CharSize::Tiny },
+            CharSize::Tiny => *self = if up { CharSize::Overview } else { CharSize::Small },
+            CharSize::Small => *self = if up { CharSize::Tiny } else { CharSize::Standart },
             CharSize::Standart => *self = if up { CharSize::Small } else { CharSize::Big },
             CharSize::Big => *self = if up { CharSize::Standart } else { CharSize::Large },
             CharSize::Large => *self = if up { CharSize::Big } else { CharSize::Overview },
@@ -30,6 +32,7 @@ impl CharSize {
     pub fn size(&self) -> (i32, i32) {
         match self {
             Self::Overview => (4, 4),
+            Self::Tiny => (6, 6),
             Self::Small => (8, 8),
             Self::Standart => (16, 16),
             Self::Big => (32, 32),
@@ -143,7 +146,7 @@ impl CharsLayout {
         // self.vscroll.set_units(Self::vlen(self.hscroll.unit_box));
         self.hscroll.set_unit_now(self.char_now % self.hscroll.unit_box);
         self.vscroll.set_unit_now(self.char_now / self.hscroll.unit_box);
-        println!("must be {}, now is {}", self.char_now, self.hscroll.unit_now + self.vscroll.unit_now * self.hscroll.unit_box);
+        // println!("must be {}, now is {}", self.char_now, self.hscroll.unit_now + self.vscroll.unit_now * self.hscroll.unit_box);
     }
 
     fn update_charlist(&mut self) {
@@ -152,12 +155,19 @@ impl CharsLayout {
         self.char_last = if last > 65536 { 65536 } else { last };
         self.char_idx = self.char_first;
 
-        println!("::{:?}", self.char_size);
-        println!("first {}, last {}, line_char {}, page_line {}, now {}", self.char_first, self.char_last, self.hscroll.unit_box, self.vscroll.unit_box, self.char_now);
-        print!("hscroll: ");
-        self.hscroll.debug();
-        print!("vscroll: ");
-        self.vscroll.debug();
+        // println!("::{:?}", self.char_size);
+        // println!("first {}, last {}, line_char {}, page_line {}, now {}", self.char_first, self.char_last, self.hscroll.unit_box, self.vscroll.unit_box, self.char_now);
+        // print!("hscroll: ");
+        // self.hscroll.debug();
+        // print!("vscroll: ");
+        // self.vscroll.debug();
+    }
+
+    /// 光标定位到鼠标所在位置
+    pub fn set_charid(&mut self, engine: &mut JEngine, mx: i32, my: i32) {
+        let (sx, sy) = (mx / self.hscroll.unit_size + self.hscroll.unit_start, (my - self.vscroll.unit_start_offs) / self.vscroll.unit_size + self.vscroll.unit_start);
+        self.hscroll.set_unit_now(sx);
+        self.line_move(engine, sy - self.vscroll.unit_now);
     }
 
     /// 计算鼠标坐标所在字符的位置(unicode码)
@@ -172,26 +182,15 @@ impl CharsLayout {
             self.char_now = 65535;
             self.update_unit_now();
         }
-        println!("{}", self.char_now);
+        // println!("{}", self.char_now);
     }
 
-    pub fn char_left(&mut self, engine: &mut JEngine) {
-        self.hscroll.line_up();
+    pub fn char_move(&mut self, engine: &mut JEngine, dist: i32) {
+        self.hscroll.line_move(dist);
         self.update_char_now();
     }
-    pub fn char_right(&mut self, engine: &mut JEngine) {
-        self.hscroll.line_down();
-        self.update_char_now();
-    }
-    pub fn line_down(&mut self, engine: &mut JEngine) {
-        if self.vscroll.line_down() {
-            self.update_charlist();
-            self.clear_layout(engine);
-        }
-        self.update_char_now();
-    }
-    pub fn line_up(&mut self, engine: &mut JEngine) {
-        if self.vscroll.line_up() {
+    pub fn line_move(&mut self, engine: &mut JEngine, dist: i32) {
+        if self.vscroll.line_move(dist) {
             self.update_charlist();
             self.clear_layout(engine);
         }
@@ -212,6 +211,7 @@ impl CharsLayout {
         self.update_char_now();
     }
     pub fn page_home(&mut self, engine: &mut JEngine) {
+        self.hscroll.home();
         if self.vscroll.home() {
             self.update_charlist();
             self.clear_layout(engine);
@@ -219,6 +219,7 @@ impl CharsLayout {
         self.update_char_now();
     }
     pub fn page_end(&mut self, engine: &mut JEngine) {
+        self.hscroll.end();
         if self.vscroll.end() {
             self.update_charlist();
             self.clear_layout(engine);
@@ -261,7 +262,7 @@ impl CharsLayout {
                     } else {
                         fontdraw.set_rect(rect, false);
                         // fontdraw.set_bound(rrect);
-                        if self.char_size != CharSize::Overview {
+                        if self.char_size != CharSize::Overview && self.char_size != CharSize::Tiny {
                             fontobj.draw_glyph(gid.unwrap(), &mut fontdraw);
                         }
                     }
