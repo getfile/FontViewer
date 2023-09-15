@@ -59,6 +59,7 @@ impl<'a> IApp for App<'a> {
         match _event {
             SdlEvent::Window { win_event: SdlWindowEvent::SizeChanged(wid, hei), .. } => {
                 self.layout.set_layout_size(_engine);
+				self.layout.init_cursor(_engine);
                 // self.prev.init_tex(_engine);
                 println!("resize {}, {}", wid, hei);
             }

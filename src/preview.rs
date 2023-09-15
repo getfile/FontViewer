@@ -64,8 +64,9 @@ impl CharPreview {
                 fontobj.draw_glyph(self.gid.unwrap(), &mut fontdraw);
 
                 let mut render = JRenderer::new(tex_canvas, &BLACK);
-				let info = format!("unicode: u{:04X} ({})\nglyphId: {}", self.uid, self.uid, self.gid.unwrap().0);
+                let info = format!("unicode: u{:04X} ({})\nglyphId: {}", self.uid, self.uid, self.gid.unwrap().0);
                 render.draw_text(&info, 2, 2, 1000, &YELLOW);
+                render.draw_rect(JRect::new(0., 0., 300., 375.), &YELLOW);
             })
             .unwrap();
     }

@@ -8,7 +8,8 @@ use jengine::ui::juilist::JScroll;
 
 use crate::font::{FontDraw, FontObj};
 
-#[derive(PartialEq)]
+/// 字符尺寸类型
+#[derive(Debug, PartialEq)]
 enum CharSize {
     Overview = 0isize, //(4, 4)
     Small,             //(8, 8)
@@ -37,29 +38,29 @@ impl CharSize {
     }
 }
 
+const CHARALL: i32 = 65536;
+
 pub struct CharsLayout {
+    wid: i32, //布局纹理尺寸
+    hei: i32,
     tex_layout: Option<JTexture>,
     tex_char: Option<JTexture>,
-    tex_cursor: Option<JTexture>,
+    char_size: CharSize,          //字符尺寸类型, 决定字符块的尺寸
+    tex_cursor: Option<JTexture>, //光标纹理尺寸, 和字符块尺寸一致
 
     pub char_first: u32, //视图的第一个码点
     char_last: u32,      //视图的最后一个码点
     char_idx: u32,       //当前绘制的字符码点
-    char_size: CharSize, //字符尺寸的缩放
+    char_now: i32,       //当前字符id
 
     vscroll: JScroll,
     hscroll: JScroll,
-    // pub box_wid: u32, //字符的指定宽度
-    // pub box_hei: u32, //字符的指定高度
-
-    // page_line: u32,    //一屏有几行
-    // pub line_box: u32, //每行有几个码点
-    // block_start: u32, //选中块的首码点
-    // block_end: u32,   //选中块的尾码点
 }
 impl Default for CharsLayout {
     fn default() -> Self {
         Self {
+            wid: 1,
+            hei: 1,
             tex_layout: None,
             tex_char: None,
             tex_cursor: None,
@@ -67,7 +68,8 @@ impl Default for CharsLayout {
             // block_end: 0,
             char_first: 0,
             char_last: 0,
-            char_idx: 0,
+            char_idx: 0, //用于分帧绘制
+            char_now: 0,
             char_size: CharSize::Overview,
             vscroll: JScroll::default(),
             hscroll: JScroll::default(),
@@ -76,10 +78,17 @@ impl Default for CharsLayout {
 }
 
 impl CharsLayout {
+    pub fn vlen(hlen: i32) -> i32 {
+        65536 / hlen + if 65536 % hlen == 0 { 0 } else { 1 }
+    }
+
     pub fn init(&mut self, engine: &mut JEngine) {
         let (wid, hei) = engine.window().size();
+        self.wid = wid as i32;
+        self.hei = hei as i32;
+
         self.hscroll.init(wid as i32, 24, false, wid as i32 / 24);
-        self.vscroll.init(hei as i32, 24, true, 65536 / self.hscroll.unit_box);
+        self.vscroll.init(hei as i32, 24, true, Self::vlen(self.hscroll.unit_box));
         self.set_char_size(engine, true);
         self.set_layout_size(engine);
     }
@@ -87,11 +96,35 @@ impl CharsLayout {
     pub fn set_char_size(&mut self, engine: &mut JEngine, big: bool) {
         self.char_size.next(!big);
         let (wid, hei) = self.char_size.size();
-        self.hscroll.set_unit_size(wid);
-        self.vscroll.set_unit_size(hei);
+        self.hscroll.set_unit_size_unitnum(wid, self.wid / wid);
+        self.vscroll.set_unit_size_unitnum(hei, Self::vlen(self.hscroll.unit_box));
+        self.update_unit_now();
         self.update_charlist();
 
-        // 调整光标纹理的尺寸
+        self.init_cursor(engine);
+        if self.tex_layout.is_some() {
+            self.clear_layout(engine);
+        }
+    }
+
+    pub fn set_layout_size(&mut self, engine: &mut JEngine) {
+        let (wid, hei) = engine.window().size();
+        self.wid = wid as i32;
+        self.hei = hei as i32;
+
+        self.hscroll.set_box_size_unitnum(self.wid, self.wid / self.hscroll.unit_size);
+        self.vscroll.set_box_size_unitnum(self.hei, Self::vlen(self.hscroll.unit_box));
+        self.update_unit_now();
+        self.update_charlist();
+
+        // 调整布局纹理的尺寸
+        self.tex_layout = Some(JTexture::from_window(engine.canvas(), wid, hei, false));
+        self.clear_layout(engine);
+    }
+
+    // 初始化或调整光标纹理
+    pub fn init_cursor(&mut self, engine: &mut JEngine) {
+        let (wid, hei) = self.char_size.size();
         self.tex_cursor = Some(JTexture::from_window(engine.canvas(), wid as u32, hei as u32, true));
         engine
             .canvas()
@@ -102,75 +135,95 @@ impl CharsLayout {
                 tex_canvas.fill_rect(SdlRect::new(0, 0, wid as u32, hei as u32)).unwrap();
             })
             .unwrap();
-        if self.tex_layout.is_some() {
-            self.clear_layout(engine);
-        }
     }
 
-    pub fn set_layout_size(&mut self, engine: &mut JEngine) {
-        let (wwid, whei) = engine.window().size();
-        self.hscroll.set_box_size(wwid as i32);
-        self.vscroll.set_box_size(whei as i32);
-        self.update_charlist();
-
-        // 调整布局纹理的尺寸
-        self.tex_layout = Some(JTexture::from_window(engine.canvas(), wwid, whei, false));
-        self.clear_layout(engine);
+    /// 更新各滚动条边长(面积不变,边长调整), 及恢复原来字符的坐标
+    fn update_unit_now(&mut self) {
+        // self.hscroll.set_units(self.wid / self.hscroll.unit_size);
+        // self.vscroll.set_units(Self::vlen(self.hscroll.unit_box));
+        self.hscroll.set_unit_now(self.char_now % self.hscroll.unit_box);
+        self.vscroll.set_unit_now(self.char_now / self.hscroll.unit_box);
+        println!("must be {}, now is {}", self.char_now, self.hscroll.unit_now + self.vscroll.unit_now * self.hscroll.unit_box);
     }
 
-    pub fn update_charlist(&mut self) {
+    fn update_charlist(&mut self) {
         self.char_first = (self.vscroll.unit_start * self.hscroll.unit_box + self.hscroll.unit_start) as u32;
         let last = (self.vscroll.unit_box * self.hscroll.unit_box) as u32 + self.char_first;
         self.char_last = if last > 65536 { 65536 } else { last };
         self.char_idx = self.char_first;
-        println!("first {}, last {}, line_char {}, page_line {}", self.char_first, self.char_last, self.hscroll.unit_box, self.vscroll.unit_box);
+
+        println!("::{:?}", self.char_size);
+        println!("first {}, last {}, line_char {}, page_line {}, now {}", self.char_first, self.char_last, self.hscroll.unit_box, self.vscroll.unit_box, self.char_now);
+        print!("hscroll: ");
+        self.hscroll.debug();
+        print!("vscroll: ");
+        self.vscroll.debug();
     }
 
+    /// 计算鼠标坐标所在字符的位置(unicode码)
     pub fn charid(&self, mx: i32, my: i32) -> u32 {
-        (mx / self.hscroll.unit_size + my / self.vscroll.unit_size * self.hscroll.unit_box) as u32 + self.char_first
+        (mx / self.hscroll.unit_size + (my - self.vscroll.unit_start_offs) / self.vscroll.unit_size * self.hscroll.unit_box) as u32 + self.char_first
+    }
+
+    // 计算光标所在字符的位置(unicode码)
+    fn update_char_now(&mut self) {
+        self.char_now = self.hscroll.unit_now + self.vscroll.unit_now * self.hscroll.unit_box;
+        if self.char_now > 65535 {
+            self.char_now = 65535;
+            self.update_unit_now();
+        }
+        println!("{}", self.char_now);
     }
 
     pub fn char_left(&mut self, engine: &mut JEngine) {
         self.hscroll.line_up();
+        self.update_char_now();
     }
     pub fn char_right(&mut self, engine: &mut JEngine) {
         self.hscroll.line_down();
+        self.update_char_now();
     }
     pub fn line_down(&mut self, engine: &mut JEngine) {
         if self.vscroll.line_down() {
             self.update_charlist();
             self.clear_layout(engine);
         }
+        self.update_char_now();
     }
     pub fn line_up(&mut self, engine: &mut JEngine) {
         if self.vscroll.line_up() {
             self.update_charlist();
             self.clear_layout(engine);
         }
+        self.update_char_now();
     }
     pub fn page_down(&mut self, engine: &mut JEngine) {
         if self.vscroll.page_down() {
             self.update_charlist();
             self.clear_layout(engine);
         }
+        self.update_char_now();
     }
     pub fn page_up(&mut self, engine: &mut JEngine) {
         if self.vscroll.page_up() {
             self.update_charlist();
             self.clear_layout(engine);
         }
+        self.update_char_now();
     }
     pub fn page_home(&mut self, engine: &mut JEngine) {
         if self.vscroll.home() {
             self.update_charlist();
             self.clear_layout(engine);
         }
+        self.update_char_now();
     }
     pub fn page_end(&mut self, engine: &mut JEngine) {
         if self.vscroll.end() {
             self.update_charlist();
             self.clear_layout(engine);
         }
+        self.update_char_now();
     }
 
     /// 清除布局纹理

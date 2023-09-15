@@ -8,7 +8,7 @@
 			"name": "(gdb) Launch",
 			"type": "cppdbg",
 			"request": "launch",
-			"program": "D:/projectTool/rust/http/get_tumblr/target/debug/method2.exe",
+			"program": "D:/projectTool/rust/my/FontViewer/target/debug/FontViewer.exe",
 			"args": ["artofbishop", "info"],
 			"stopAtEntry": false,
 			"cwd": "${fileDirname}",
