@@ -1,4 +1,4 @@
-use jengine::jcolor::{self, JColor, BLACK, WHITE, YELLOW};
+use jengine::jcolor::{self, JColor, BLACK, WHITE, YELLOW, GRAY_DARK};
 use jengine::jengine::JEngine;
 use jengine::jrenderer::JRenderer;
 use jengine::jtexture::JTexture;
@@ -57,7 +57,7 @@ impl CharPreview {
                 let rect = self.ginfo.as_ref().unwrap().bound;
 
                 let mut fontdraw = FontDraw::new(tex_canvas, 300. / fontobj.unit_em() as f32);
-                fontdraw.set_rect(JRect::new(0., 0., 300., 300.), false);
+                fontdraw.set_rect(JRect::new(0., 0., 300., 300.), GRAY_DARK);
                 fontdraw.set_bound(rect);
                 let color = JColor::new(0.4, 0.4, 0.7, 1.0);
                 fontdraw.color(&color);

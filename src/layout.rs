@@ -1,4 +1,4 @@
-use jengine::jcolor::{JColor, BLACK, YELLOW};
+use jengine::jcolor::{BLACK, GRAY_DARK, YELLOW};
 use jengine::jengine::JEngine;
 use jengine::jtexture::JTexture;
 use jengine::jtimer::{FrameTime45, JTime};
@@ -7,6 +7,7 @@ use jengine::math::jgeom::SdlRect;
 use jengine::ui::juilist::JScroll;
 
 use crate::font::{FontDraw, FontObj};
+use crate::unicode_range::UnicodeRangeMgr;
 
 /// 字符尺寸类型
 #[derive(Debug, PartialEq)]
@@ -41,7 +42,7 @@ impl CharSize {
     }
 }
 
-const CHARALL: i32 = 65536;
+const CHARALL: u32 = 65536;
 
 pub struct CharsLayout {
     wid: i32, //布局纹理尺寸
@@ -54,7 +55,10 @@ pub struct CharsLayout {
     pub char_first: u32, //视图的第一个码点
     char_last: u32,      //视图的最后一个码点
     char_idx: u32,       //当前绘制的字符码点
-    char_now: i32,       //当前字符id
+    char_now: i32,       //当前光标的字符id
+    title_old: bool,
+
+    unicodemgr: UnicodeRangeMgr,
 
     vscroll: JScroll,
     hscroll: JScroll,
@@ -66,14 +70,17 @@ impl Default for CharsLayout {
             hei: 1,
             tex_layout: None,
             tex_char: None,
+            char_size: CharSize::Overview,
             tex_cursor: None,
-            // block_start: 0,
-            // block_end: 0,
+
             char_first: 0,
             char_last: 0,
             char_idx: 0, //用于分帧绘制
             char_now: 0,
-            char_size: CharSize::Overview,
+            title_old: true,
+
+            unicodemgr: UnicodeRangeMgr::init(),
+
             vscroll: JScroll::default(),
             hscroll: JScroll::default(),
         }
@@ -82,10 +89,12 @@ impl Default for CharsLayout {
 
 impl CharsLayout {
     pub fn vlen(hlen: i32) -> i32 {
-        65536 / hlen + if 65536 % hlen == 0 { 0 } else { 1 }
+        CHARALL as i32 / hlen + if CHARALL as i32 % hlen == 0 { 0 } else { 1 }
     }
 
     pub fn init(&mut self, engine: &mut JEngine) {
+        self.unicodemgr.debug();
+
         let (wid, hei) = engine.window().size();
         self.wid = wid as i32;
         self.hei = hei as i32;
@@ -152,8 +161,9 @@ impl CharsLayout {
     fn update_charlist(&mut self) {
         self.char_first = (self.vscroll.unit_start * self.hscroll.unit_box + self.hscroll.unit_start) as u32;
         let last = (self.vscroll.unit_box * self.hscroll.unit_box) as u32 + self.char_first;
-        self.char_last = if last > 65536 { 65536 } else { last };
+        self.char_last = if last > CHARALL { CHARALL } else { last };
         self.char_idx = self.char_first;
+        self.unicodemgr.reset();
 
         // println!("::{:?}", self.char_size);
         // println!("first {}, last {}, line_char {}, page_line {}, now {}", self.char_first, self.char_last, self.hscroll.unit_box, self.vscroll.unit_box, self.char_now);
@@ -178,11 +188,12 @@ impl CharsLayout {
     // 计算光标所在字符的位置(unicode码)
     fn update_char_now(&mut self) {
         self.char_now = self.hscroll.unit_now + self.vscroll.unit_now * self.hscroll.unit_box;
-        if self.char_now > 65535 {
-            self.char_now = 65535;
+        if self.char_now >= CHARALL as i32 {
+            self.char_now = CHARALL as i32 - 1;
             self.update_unit_now();
         }
         // println!("{}", self.char_now);
+        self.title_old = true;
     }
 
     pub fn char_move(&mut self, engine: &mut JEngine, dist: i32) {
@@ -239,14 +250,14 @@ impl CharsLayout {
             .unwrap();
     }
 
-    /// 在布局纹理上绘制字符集
+    /// 生成布局纹理(分帧绘制所有字符)
     fn draw_layout(&mut self, engine: &mut JEngine, fontobj: &mut FontObj) {
         let timer = JTime::inst();
         engine
             .canvas()
             .with_texture_canvas(&mut (self.tex_layout.as_mut().unwrap().sdl_texture), |tex_canvas| {
                 let mut fontdraw = FontDraw::new(tex_canvas, self.hscroll.unit_size as f32 / fontobj.unit_em() as f32);
-                let color = JColor::new(0.3, 0.3, 0.0, 1.0);
+                // let mut color = JColor::new(1.0, 1.0, 1.0, 1.0);
                 let mut rect = JRect::new(0., 0., self.hscroll.unit_size as f32, self.vscroll.unit_size as f32);
                 let time_start = timer.count();
 
@@ -256,13 +267,17 @@ impl CharsLayout {
                     rect.x = (cx * self.hscroll.unit_size) as f32;
                     rect.y = (cy * self.vscroll.unit_size + self.vscroll.unit_start_offs) as f32;
 
+                    let range = self.unicodemgr.range(self.char_idx);
+                    let color = if range.is_none() { GRAY_DARK } else { range.unwrap().color() };
+                    fontdraw.set_rect(rect, color);
+
                     let gid = fontobj.get_glyph_id(self.char_idx);
-                    if gid.is_none() {
-                        fontdraw.set_rect(rect, true);
-                    } else {
-                        fontdraw.set_rect(rect, false);
+                    if gid.is_some() {
                         // fontdraw.set_bound(rrect);
-                        if self.char_size != CharSize::Overview && self.char_size != CharSize::Tiny {
+                        if self.char_size == CharSize::Overview {
+                        } else if self.char_size == CharSize::Tiny {
+                            fontdraw.draw_glyph_box(rect);
+                        } else {
                             fontobj.draw_glyph(gid.unwrap(), &mut fontdraw);
                         }
                     }
@@ -280,6 +295,20 @@ impl CharsLayout {
 
     // 更新布局纹理的内容
     pub fn update(&mut self, engine: &mut JEngine, fontobj: &mut FontObj) {
+        if self.title_old {
+            self.title_old = false;
+            let gidobj = fontobj.get_glyph_id(self.char_now as u32);
+            let gid = if gidobj.is_none() { -1 } else { gidobj.unwrap().0 as i32 };
+            let rangeobj = self.unicodemgr.range_any(self.char_now as u32);
+            if rangeobj.is_none() {
+                let out = format!("unicode {:04X}({}), glyphid {}, Set: None", self.char_now, self.char_now, gid);
+                engine.window().set_title(&out).unwrap();
+            } else {
+                let range = rangeobj.unwrap();
+                let out = format!("unicode {:04X}({}), glyphid {}, Set: {} [{}-{}]", self.char_now, self.char_now, gid, range.1, range.2, range.3);
+                engine.window().set_title(&out).unwrap();
+            };
+        }
         if self.char_idx >= self.char_last {
             return;
         }

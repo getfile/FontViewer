@@ -35,23 +35,24 @@ impl<'a> FontDraw<'a> {
     pub fn color(&mut self, color: &JColor) {
         self.canvas.set_draw_color(color.to_sdlcolor());
     }
-    pub fn set_rect(&mut self, rect: JRect, nothing: bool) {
+    pub fn set_rect(&mut self, rect: JRect, color: JColor) {
         self.rect = rect;
         self.origin = Vec2::new(self.rect.x, self.rect.y + self.rect.hei);
 
-        if nothing {
-            self.canvas.set_draw_color(GRAY_DARK.to_sdlcolor());
-        } else {
-            self.canvas.set_draw_color(GRAY.to_sdlcolor());
-        }
+        self.canvas.set_draw_color(color.to_sdlcolor());
         self.canvas.draw_rect(self.rect.to_sdlrect()).unwrap();
         self.canvas.set_draw_color(WHITE.to_sdlcolor());
     }
     pub fn set_bound(&mut self, rect: Rect) {
         self.bound = rect;
     }
-    pub fn draw(&mut self) {
-        println!("draw");
+    pub fn draw_glyph_box(&mut self, mut rect: JRect) {
+        rect.x += 2.0;
+        rect.y += 2.0;
+        rect.wid -= 4.0;
+        rect.hei -= 4.0;
+        self.canvas.draw_rect(rect.to_sdlrect()).unwrap();
+        // println!("draw");
     }
 }
 impl<'a> OutlineBuilder for FontDraw<'a> {

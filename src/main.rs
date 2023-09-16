@@ -1,17 +1,15 @@
 pub mod font;
 pub mod layout;
 pub mod preview;
-pub mod unicode_layout;
-
-use std::default;
+pub mod unicode_range;
 
 use font::FontObj;
 use jengine::jcolor::JColor;
 use jengine::jengine::{IApp, JEngine, JEngineArgs, SdlEvent, SdlResult, SdlWindowEvent};
-use jengine::jfont::{FontMgr, SdlFontStyle};
 use jengine::jinput::{SdlKeycode, SdlKeymod};
 use layout::CharsLayout;
 use preview::CharPreview;
+// use unicode_range::order_unicode_range;
 
 struct App<'a> {
     layout: CharsLayout,
@@ -34,10 +32,14 @@ impl<'a> IApp for App<'a> {
         // let mut fontmgr = FontMgr::init();
         // fontmgr.setfont("d:/web/font/Code_8X8.ttf", 12, SdlFontStyle::BOLD);
 
+		// order_unicode_range();
+
         self.layout.init(_engine);
         // self.font_obj = Some(FontObj::init("d:/web/font/VonwaonBitmap-12px.ttf"));
         // self.font_obj = Some(FontObj::init("d:/web/font/mplus_hzk_13.ttf"));
-        self.font_obj = Some(FontObj::init("d:/web/font/Small SimSun.ttf"));
+        // self.font_obj = Some(FontObj::init("d:/web/font/Small SimSun.ttf"));
+        self.font_obj = Some(FontObj::init("C:/Windows/fonts/Deng.ttf"));
+        // self.font_obj = Some(FontObj::init("C:/Windows/fonts/mingliub.ttc"));
         if self.font_obj.is_some() {
             self.font_obj.as_ref().unwrap().debug();
         }
